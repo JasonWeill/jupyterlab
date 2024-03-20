@@ -2,7 +2,10 @@
 // Distributed under the terms of the Modified BSD License.
 
 import { expect, galata, Handle, test } from '@jupyterlab/galata';
+
 import { Locator } from '@playwright/test';
+
+import * as path from 'path';
 
 const sidebarIds: galata.SidebarTabId[] = [
   'filebrowser',
@@ -11,6 +14,10 @@ const sidebarIds: galata.SidebarTabId[] = [
   'table-of-contents',
   'extensionmanager.main-view'
 ];
+
+const testFileName = 'simple.md';
+const testNotebook = 'simple_notebook.ipynb';
+const testFolderName = 'test-folder';
 
 /**
  * Add provided text as label on first tab in given tabbar.
@@ -26,7 +33,27 @@ async function mockLabelOnFirstTab(tabbar: Locator, text: string) {
     }, text);
 }
 
+test.use({
+  tmpPath: 'test-sidebars'
+});
+
 test.describe('Sidebars', () => {
+  test.beforeAll(async ({ request, tmpPath }) => {
+    const contents = galata.newContentsHelper(request);
+
+    // Create some dummy content
+    await contents.uploadFile(
+      path.resolve(__dirname, `./notebooks/${testNotebook}`),
+      `${tmpPath}/${testNotebook}`
+    );
+    await contents.uploadFile(
+      path.resolve(__dirname, `./notebooks/${testFileName}`),
+      `${tmpPath}/${testFileName}`
+    );
+    // Create a dummy folder
+    await contents.createDirectory(`${tmpPath}/${testFolderName}`);
+  });
+
   sidebarIds.forEach(sidebarId => {
     test(`Open Sidebar tab ${sidebarId}`, async ({ page }) => {
       await page.sidebar.openTab(sidebarId);
@@ -40,6 +67,12 @@ test.describe('Sidebars', () => {
       expect(await sidebar.screenshot()).toMatchSnapshot(
         imageName.toLowerCase()
       );
+    });
+
+    test.afterAll(async ({ request, tmpPath }) => {
+      // Clean up the test files
+      const contents = galata.newContentsHelper(request);
+      await contents.deleteDirectory(tmpPath);
     });
   });
 
