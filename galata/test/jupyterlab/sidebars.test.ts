@@ -25,6 +25,7 @@ const testFolderName = 'test-folder';
 
 const sidebarWidths = {
   small: 226,
+  medium: 308,
   large: 371
 };
 
