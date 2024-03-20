@@ -1,7 +1,7 @@
 // Copyright (c) Jupyter Development Team.
 // Distributed under the terms of the Modified BSD License.
 
-import { expect, galata, Handle, test } from '@jupyterlab/galata';
+import { expect, galata, test } from '@jupyterlab/galata';
 
 import { Locator } from '@playwright/test';
 
@@ -18,6 +18,11 @@ const sidebarIds: galata.SidebarTabId[] = [
 const testFileName = 'simple.md';
 const testNotebook = 'simple_notebook.ipynb';
 const testFolderName = 'test-folder';
+
+const sidebarWidths = {
+  small: 226,
+  large: 371
+};
 
 /**
  * Add provided text as label on first tab in given tabbar.
@@ -69,6 +74,23 @@ test.describe('Sidebars', () => {
       );
     });
 
+    // Treat file browser as two additional test cases for resized widths
+    for (const [sizeName, size] of Object.entries(sidebarWidths)) {
+      test(`Open Sidebar tab filebrowser ${sizeName}`, async ({ page }) => {
+        await page.sidebar.openTab('filebrowser');
+        // Resize the sidebar to the desired width.
+        await page.sidebar.setWidth(size, 'left');
+        const imageName = `opened-sidebar-filebrowser-${sizeName}.png`;
+        const position = await page.sidebar.getTabPosition('filebrowser');
+        const sidebar = page.sidebar.getContentPanelLocator(
+          position ?? undefined
+        );
+        expect(await sidebar.screenshot()).toMatchSnapshot(
+          imageName.toLowerCase()
+        );
+      });
+    }
+
     test.afterAll(async ({ request, tmpPath }) => {
       // Clean up the test files
       const contents = galata.newContentsHelper(request);
@@ -94,7 +116,6 @@ test.describe('Sidebars', () => {
     await page.notebook.createNew('notebook.ipynb');
 
     const unusedRules = await page.style.findUnusedStyleRules({
-      page,
       fragments: ['jp-DirListing', 'jp-FileBrowser'],
       exclude: [
         // active during renaming
