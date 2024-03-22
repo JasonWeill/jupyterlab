@@ -5,6 +5,8 @@ import { expect, galata, test } from '@jupyterlab/galata';
 
 import { Locator } from '@playwright/test';
 
+import * as path from 'path';
+
 const sidebarIds: galata.SidebarTabId[] = [
   'filebrowser',
   'jp-property-inspector',
@@ -12,6 +14,16 @@ const sidebarIds: galata.SidebarTabId[] = [
   'table-of-contents',
   'extensionmanager.main-view'
 ];
+
+const testFileName = 'simple.md';
+const testNotebook = 'simple_notebook.ipynb';
+const testFolderName = 'test-folder';
+
+const sidebarWidths = {
+  small: 226,
+  medium: 308,
+  large: 371
+};
 
 /**
  * Add provided text as label on first tab in given tabbar.
@@ -202,4 +214,47 @@ test.describe('Sidebars', () => {
     );
     expect(tableOfContentsElementRole).toEqual('region');
   });
+});
+
+test.describe('Sidebar filebrowser', () => {
+  test.beforeEach(async ({ page, request, tmpPath }) => {
+    const contents = galata.newContentsHelper(request);
+    // Make each of these files a day old, so they show as 1 day old in the browser.
+    await galata.Mock.freezeContentLastModified(page);
+
+    // Create some dummy content
+    await contents.uploadFile(
+      path.resolve(__dirname, `./notebooks/${testNotebook}`),
+      `${tmpPath}/${testNotebook}`
+    );
+    await contents.uploadFile(
+      path.resolve(__dirname, `./notebooks/${testFileName}`),
+      `${tmpPath}/${testFileName}`
+    );
+    // Create a dummy folder
+    await contents.createDirectory(`${tmpPath}/${testFolderName}`);
+  });
+
+  test.afterEach(async ({ request, tmpPath }) => {
+    // Clean up the test files
+    const contents = galata.newContentsHelper(request);
+    await contents.deleteDirectory(tmpPath);
+  });
+
+  // Additional test cases for resized widths of the file browser
+  for (const [sizeName, size] of Object.entries(sidebarWidths)) {
+    test(`size ${sizeName}`, async ({ page }) => {
+      await page.sidebar.openTab('filebrowser');
+      // Resize the sidebar to the desired width.
+      await page.sidebar.setWidth(size, 'left');
+      const imageName = `opened-sidebar-filebrowser-${sizeName}.png`;
+      const position = await page.sidebar.getTabPosition('filebrowser');
+      const sidebar = page.sidebar.getContentPanelLocator(
+        position ?? undefined
+      );
+      expect(await sidebar.screenshot()).toMatchSnapshot(
+        imageName.toLowerCase()
+      );
+    });
+  }
 });
